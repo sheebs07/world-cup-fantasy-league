@@ -1,10 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 
-const API_URL = "https://v3.football.api-sports.io/standings";
-const API_KEY = process.env.WORLD_CUP_API_KEY;
-const season = 2022;
-const league = 1;
+// OpenLigaDB World Cup 2022 groups are numbered 1–8
+const SEASON = 2022;
+
+// 1 = Group A, 2 = Group B, ..., 8 = Group H
+const GROUP_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -12,63 +13,74 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const response = await fetch(`${API_URL}?league=${league}&season=${season}`, {
-      headers: {
-        "x-apisports-key": API_KEY!,
-        "x-rapidapi-host": "v3.football.api-sports.io"
+    let count = 0;
+
+    for (const groupId of GROUP_IDS) {
+      const url = `https://api.openligadb.de/getbltable/wm${SEASON}/${groupId}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        console.error("OpenLigaDB error:", await response.text());
+        continue;
       }
-    });
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("API-Football error:", text);
-      return res.status(500).json({ error: "Failed to fetch standings" });
-    }
+      const table = await response.json();
 
-    const data = await response.json();
-
-    const groups = data.response[0].league.standings;
-
-    for (const group of groups) {
-      for (const entry of group) {
-        const team = entry.team;
+      // Each entry is a team in the group standings
+      for (const entry of table) {
+        const fifaCode = entry.shortName; // e.g., BRA, ARG, FRA
+        const name = entry.teamName;
+        const group = entry.groupName.replace("Group ", "");
 
         await prisma.country.upsert({
-          where: { fifaCode: team.id.toString() },
+          where: { fifaCode },
           update: {
-            name: team.name,
-            group: entry.group.replace("Group ", ""),
-            // Add stats fields if you add them to Prisma:
-            played: entry.all.played,
-            wins: entry.all.win,
-            draws: entry.all.draw,
-            losses: entry.all.lose,
-            goalsFor: entry.all.goals.for,
-            goalsAgainst: entry.all.goals.against,
-            goalDiff: entry.goalsDiff,
+            name,
+            group,
+
+            played: entry.matches,
+            wins: entry.won,
+            draws: entry.draw,
+            losses: entry.lost,
+
+            goalsFor: entry.goals,
+            goalsAgainst: entry.opponentGoals,
+            goalDiff: entry.goalDiff,
+
             points: entry.points,
             rank: entry.rank
           },
           create: {
-            name: team.name,
-            fifaCode: team.id.toString(),
-            group: entry.group.replace("Group ", ""),
+            fifaCode,
+            name,
+            group,
 
-            played: entry.all.played,
-            wins: entry.all.win,
-            draws: entry.all.draw,
-            losses: entry.all.lose,
-            goalsFor: entry.all.goals.for,
-            goalsAgainst: entry.all.goals.against,
-            goalDiff: entry.goalsDiff,
+            played: entry.matches,
+            wins: entry.won,
+            draws: entry.draw,
+            losses: entry.lost,
+
+            goalsFor: entry.goals,
+            goalsAgainst: entry.opponentGoals,
+            goalDiff: entry.goalDiff,
+
             points: entry.points,
             rank: entry.rank
           }
         });
+
+        count++;
       }
     }
 
-    return res.status(200).json({ status: "ok" });
+    // Update global sync timestamp
+    await prisma.syncMeta.upsert({
+      where: { id: 1 },
+      update: { lastUpdated: new Date() },
+      create: { id: 1, lastUpdated: new Date() }
+    });
+
+    return res.status(200).json({ status: "ok", count });
   } catch (err) {
     console.error("World Cup Sync Error:", err);
     return res.status(500).json({ error: "Internal server error" });
