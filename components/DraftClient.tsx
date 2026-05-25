@@ -27,7 +27,7 @@ type Country = {
 type DraftPick = {
   id: number;
   ownerId: number;
-  fifaCode: string;
+  countryId: number;
   round: number;
   pickNumber: number;
   country: {
@@ -185,7 +185,7 @@ export default function DraftClient({
     }
   }, [draftState?.preDraftStartTime, draftState?.draftStatus]);
 
-  const takenTeamIds = new Set(allPicks.map((p) => p.fifaCode));
+  const takenTeamIds = new Set(allPicks.map((p) => p.country.fifaCode));
   const totalPicks = owners.length * rounds;
   const currentPickNumber = allPicks.length + 1;
   const draftComplete = allPicks.length >= totalPicks;
@@ -214,7 +214,7 @@ export default function DraftClient({
     const clientPick: DraftPick = {
       id: p.id,
       ownerId: p.ownerId,
-      fifaCode: p.fifaCode,
+      countryId: p.countryId,
       round: p.round,
       pickNumber: p.pickNumber,
       country: {

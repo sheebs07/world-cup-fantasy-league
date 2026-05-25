@@ -7,28 +7,37 @@ type Owner = {
   name: string;
 };
 
-type MlbTeam = {
+type Country = {
   id: number;
   name: string;
-  division: string;
-  mlbId: number;
+  group: string;
+  fifaCode: string;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDiff: number;
+  points: number;
+  rank: number;
 };
 
 type DraftPickClient = {
   id: number;
   ownerId: number;
-  mlbTeamId: number;
+  countryId: number;
   round: number;
   pickNumber: number;
-  mlbTeam: {
+  country: {
     name: string;
-    mlbId: number;
+    fifaCode: string;
   };
 };
 
 type Settings = {
   id: number;
-  draftType: string;   // "snake" or "linear"
+  draftType: string;
   rounds: number;
   commissionerPassword: string;
   pickClockSeconds: number;
@@ -37,62 +46,64 @@ type Settings = {
 
 type DraftPageProps = {
   owners: Owner[];
-  teams: MlbTeam[];
+  countries: Country[];
   picks: DraftPickClient[];
   settings: Settings;
 };
 
 export const getServerSideProps: GetServerSideProps<DraftPageProps> = async () => {
+  // Load owners
   const owners = await prisma.owner.findMany({
     orderBy: { draftSlot: "asc" }
   });
 
-  const teams = await prisma.mlbTeam.findMany({
+  // Load countries
+  const countries = await prisma.country.findMany({
     orderBy: { name: "asc" }
   });
 
+  // Load picks with country included
   const picks = await prisma.draftPick.findMany({
-    include: { mlbTeam: true },
+    include: { country: true },
     orderBy: { pickNumber: "asc" }
   });
 
-  // ⭐ NEW: Load league settings
+  // Load settings
   const settings = await prisma.settings.findFirst();
 
   const clientPicks: DraftPickClient[] = picks.map((p) => ({
     id: p.id,
     ownerId: p.ownerId,
-    mlbTeamId: p.mlbTeamId,
+    countryId: p.countryId,
     round: p.round,
     pickNumber: p.pickNumber,
-    mlbTeam: {
-      name: p.mlbTeam.name,
-      mlbId: p.mlbTeam.mlbId
+    country: {
+      name: p.country.name,
+      fifaCode: p.country.fifaCode
     }
   }));
 
   return {
     props: {
       owners: owners.map((o) => ({ id: o.id, name: o.name })),
-      teams: teams.map((t) => ({
-        id: t.id,
-        name: t.name,
-        division: t.division,
-        mlbId: t.mlbId
-      })),
+      countries,
       picks: clientPicks,
       settings: settings as Settings
     }
   };
 };
 
-export default function DraftPage({ owners, teams, picks, settings }: DraftPageProps) {
+export default function DraftPage({ owners, countries, picks, settings }: DraftPageProps) {
   return (
     <div style={{ padding: "0px" }}>
-      <h1 style={{ marginBottom: "10px" }}>Draft Board</h1>
+      <h1 style={{ marginBottom: "10px" }}>World Cup Draft Board</h1>
 
-      {/* ⭐ Pass settings into DraftClient */}
-      <DraftClient owners={owners} teams={teams} picks={picks} settings={settings} />
+      <DraftClient
+        owners={owners}
+        countries={countries}
+        picks={picks}
+        settings={settings}
+      />
     </div>
   );
 }

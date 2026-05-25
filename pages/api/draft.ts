@@ -15,16 +15,26 @@ if (global.pickStartTime === undefined) global.pickStartTime = new Date();
 if (global.lastPickNumber === undefined) global.lastPickNumber = 1;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // ===============================
+  // ⭐ GET — return all picks
+  // ===============================
   if (req.method === "GET") {
     const picks = await prisma.draftPick.findMany({
       orderBy: { pickNumber: "asc" },
-      include: { owner: true, mlbTeam: true }
+      include: { owner: true, country: true }
     });
     return res.status(200).json(picks);
   }
 
+  // ===============================
+  // ⭐ POST — create a new pick
+  // ===============================
   if (req.method === "POST") {
-    const { mlbTeamId } = req.body;
+    const { countryId } = req.body;
+
+    if (!countryId) {
+      return res.status(400).json({ error: "Missing countryId" });
+    }
 
     // Load league settings
     const settings = await prisma.settings.findFirst();
@@ -58,12 +68,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Draft complete" });
     }
 
-    // Team already taken?
+    // Country already taken?
     const alreadyTaken = await prisma.draftPick.findFirst({
-      where: { mlbTeamId }
+      where: { countryId }
     });
     if (alreadyTaken) {
-      return res.status(400).json({ error: "Team already drafted" });
+      return res.status(400).json({ error: "Country already drafted" });
     }
 
     // Determine next owner
@@ -77,23 +87,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const pick = await prisma.draftPick.create({
       data: {
         ownerId: nextOwnerId,
-        mlbTeamId,
+        countryId,
         round,
         pickNumber
       },
-      include: { owner: true, mlbTeam: true }
+      include: { owner: true, country: true }
     });
 
-    // ===============================
-    // ⭐ Mark draft complete
-    // ===============================
+    // Mark draft complete
     if (pickNumber === draftOrder.length) {
       global.draftStatus = "completed";
     }
 
-    // ===============================
-    // ⭐ Reset pick clock for next pick
-    // ===============================
+    // Reset pick clock for next pick
     global.pickStartTime = new Date();
     global.lastPickNumber = pickNumber + 1;
 

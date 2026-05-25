@@ -21,7 +21,7 @@ export async function getServerSideProps() {
     include: {
       picks: {
         include: {
-          mlbTeam: true
+          country: true
         }
       }
     },

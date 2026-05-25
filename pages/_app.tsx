@@ -9,7 +9,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         <Link href="/">Home</Link>
         <Link href="/standings">Standings</Link>
         <Link href="/owners">Owners</Link>
-        <Link href="/teams">Teams</Link>
+        <Link href="/countries">Countries</Link>
         <Link href="/draft">Draft</Link>
         <Link href="/settings">Settings</Link>
       </nav>

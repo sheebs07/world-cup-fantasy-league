@@ -16,7 +16,7 @@ model Owner {
 
 model Country {
   id        Int         @id @default(autoincrement())
-  name      String
+  name      String 
   fifaCode  String      @unique
   group     String
 

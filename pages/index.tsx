@@ -10,7 +10,7 @@ export default function HomePage() {
         <li>Go to <strong>Draft</strong> to run the snake draft.</li>
         <li>Go to <strong>Standings</strong> to see the league leaderboard.</li>
         <li>Go to <strong>Owners</strong> to see each owner.</li>
-        <li>Go to <strong>Teams</strong> to see available MLB teams.</li>
+        <li>Go to <strong>Countries</strong> to see available MLB teams.</li>
       </ul>
     </div>
   );

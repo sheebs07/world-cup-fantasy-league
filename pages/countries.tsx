@@ -1,38 +1,39 @@
+import { GetServerSideProps } from "next";
 import { prisma } from "@/lib/prisma";
 
-type Team = {
+type Country = {
   id: number;
   name: string;
-  division: string;
-  mlbId: number;
+  group: string;
+  fifaCode: string;
 };
 
-type TeamsPageProps = {
-  teams: Team[];
+type CountriesPageProps = {
+  countries: Country[];
 };
 
-export async function getServerSideProps() {
-  const teams = await prisma.mlbTeam.findMany({
+export const getServerSideProps: GetServerSideProps<CountriesPageProps> = async () => {
+  const countries = await prisma.country.findMany({
     select: {
       id: true,
       name: true,
-      division: true,
-      mlbId: true
+      group: true,
+      fifaCode: true
     },
     orderBy: { name: "asc" }
   });
 
   return {
-    props: { teams }
+    props: { countries }
   };
-}
+};
 
-export default function TeamsPage({ teams }: TeamsPageProps) {
-  const getLogoUrl = (team: Team) => `/logos/${team.mlbId}.png`;
+export default function CountriesPage({ countries }: CountriesPageProps) {
+  const getFlagUrl = (country: Country) => `/logos/${country.fifaCode}.png`;
 
   return (
     <div>
-      <h1 style={{ marginBottom: "20px" }}>MLB Teams</h1>
+      <h1 style={{ marginBottom: "20px" }}>World Cup Countries</h1>
 
       <div
         style={{
@@ -41,9 +42,9 @@ export default function TeamsPage({ teams }: TeamsPageProps) {
           gap: "16px"
         }}
       >
-        {teams.map((team) => (
+        {countries.map((country) => (
           <div
-            key={team.id}
+            key={country.id}
             className="card"
             style={{
               display: "flex",
@@ -55,22 +56,23 @@ export default function TeamsPage({ teams }: TeamsPageProps) {
             }}
           >
             <img
-              src={getLogoUrl(team)}
-              alt={team.name}
+              src={getFlagUrl(country)}
+              alt={country.name}
               style={{
                 width: "48px",
-                height: "48px",
-                objectFit: "contain"
+                height: "32px",
+                objectFit: "cover",
+                borderRadius: "4px"
               }}
             />
 
             <div style={{ display: "flex", flexDirection: "column" }}>
               <div style={{ fontWeight: 600, fontSize: "15px" }}>
-                {team.name}
+                {country.name}
               </div>
 
               <div style={{ color: "#666", fontSize: "13px" }}>
-                {team.division}
+                Group {country.group}
               </div>
             </div>
           </div>
