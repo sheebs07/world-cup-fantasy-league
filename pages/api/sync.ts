@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 
 const COMPETITION_ID = 17;     // World Cup
-const SEASON_ID = 255711;      // 2022 World Cup season
+const SEASON_ID = 255713;      // 2022 World Cup season
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
