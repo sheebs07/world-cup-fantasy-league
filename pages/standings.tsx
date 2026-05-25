@@ -20,21 +20,33 @@ type StandingsPageProps = {
   baseUrl: string;
 };
 
-export const getServerSideProps: GetServerSideProps<StandingsPageProps> = async () => {
+function resolveBaseUrl() {
   const raw =
     process.env.NEXT_PUBLIC_BASE_URL ||
     process.env.VERCEL_URL ||
     "http://localhost:3000";
 
-  const baseUrl = raw.startsWith("http") ? raw : `https://${raw}`;
+  if (raw.startsWith("http")) return raw;
+  return `https://${raw}`;
+}
 
-  // Fetch standings
-  const standingsRes = await fetch(`${baseUrl}/api/standings`);
-  const standings = await standingsRes.json();
+export const getServerSideProps: GetServerSideProps<StandingsPageProps> = async () => {
+  const baseUrl = resolveBaseUrl();
 
-  // Fetch last updated timestamp
-  const metaRes = await fetch(`${baseUrl}/api/sync-meta`);
-  const meta = await metaRes.json();
+  // --- Safe fetch wrapper (prevents SSR crashes) ---
+  async function safeJson(url: string) {
+    try {
+      const res = await fetch(url);
+      const text = await res.text();
+      return JSON.parse(text);
+    } catch (err) {
+      console.error("Failed to load:", url, err);
+      return null;
+    }
+  }
+
+  const standings = (await safeJson(`${baseUrl}/api/standings`)) || [];
+  const meta = await safeJson(`${baseUrl}/api/sync-meta`);
 
   return {
     props: {
@@ -50,12 +62,7 @@ export default function StandingsPage({ standings, lastUpdated, baseUrl }: Stand
 
   const refreshData = async () => {
     setLoading(true);
-
-    await fetch(`${baseUrl}/api/sync`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" }
-    });
-
+    await fetch(`${baseUrl}/api/sync`, { method: "POST" });
     window.location.reload();
   };
 
@@ -65,7 +72,6 @@ export default function StandingsPage({ standings, lastUpdated, baseUrl }: Stand
 
   return (
     <div style={{ padding: "20px" }}>
-      {/* Header Row */}
       <div
         style={{
           display: "flex",
@@ -89,12 +95,10 @@ export default function StandingsPage({ standings, lastUpdated, baseUrl }: Stand
         </button>
       </div>
 
-      {/* Last Updated */}
       <div style={{ marginBottom: "20px", color: "#555", fontSize: "14px" }}>
         <strong>Last Updated:</strong> {formattedLastUpdated}
       </div>
 
-      {/* Standings Table */}
       <table
         style={{
           width: "100%",
