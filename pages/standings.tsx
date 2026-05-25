@@ -1,169 +1,82 @@
-import Image from "next/image";
-import { prisma } from "@/lib/prisma";
+import { GetServerSideProps } from "next";
 
-type CountryRow = {
-  fifaCode: string;
-  name: string;
-  wins: number;
-  draws: number;
-  losses: number;
-  points: number;
-};
-
-type OwnerRow = {
+type Standing = {
   ownerId: number;
   ownerName: string;
   wins: number;
   draws: number;
   losses: number;
   points: number;
-  rank: number;
-  countries: CountryRow[];
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDiff: number;
+  countries: string[];
 };
 
-export default async function StandingsPage() {
-  // Load owners + picks + countries
-  const owners = await prisma.owner.findMany({
-    include: {
-      picks: {
-        include: {
-          country: true
-        }
-      }
-    },
-    orderBy: { name: "asc" }
-  });
+type StandingsPageProps = {
+  standings: Standing[];
+};
 
-  const meta = await prisma.syncMeta.findUnique({ where: { id: 1 } });
+export const getServerSideProps: GetServerSideProps<StandingsPageProps> = async () => {
+  // Required for Vercel SSR — relative URLs DO NOT WORK
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.VERCEL_URL ||
+    "http://localhost:3000";
 
-  // Build rows
-  const rows: OwnerRow[] = owners.map((o: { picks: any[]; id: any; name: any; }) => {
-    const countries: CountryRow[] = o.picks.map((p) => ({
-      fifaCode: p.country.fifaCode,
-      name: p.country.name,
-      wins: p.country.wins,
-      draws: p.country.draws,
-      losses: p.country.losses,
-      points: p.country.points
-    }));
+  const url = baseUrl.startsWith("http")
+    ? baseUrl
+    : `https://${baseUrl}`;
 
-    const wins = countries.reduce((sum, c) => sum + c.wins, 0);
-    const draws = countries.reduce((sum, c) => sum + c.draws, 0);
-    const losses = countries.reduce((sum, c) => sum + c.losses, 0);
-    const points = countries.reduce((sum, c) => sum + c.points, 0);
+  const res = await fetch(`${url}/api/standings`);
+  const standings = await res.json();
 
-    return {
-      ownerId: o.id,
-      ownerName: o.name,
-      wins,
-      draws,
-      losses,
-      points,
-      rank: 0,
-      countries
-    };
-  });
+  return {
+    props: { standings }
+  };
+};
 
-  // Sort standings
-  rows.sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.wins !== a.wins) return b.wins - a.wins;
-    return a.losses - b.losses;
-  });
-
-  // Dense ranking
-  if (rows.length > 0) {
-    rows[0].rank = 1;
-    for (let i = 1; i < rows.length; i++) {
-      const prev = rows[i - 1];
-      const curr = rows[i];
-      const same =
-        prev.points === curr.points &&
-        prev.wins === curr.wins &&
-        prev.losses === curr.losses;
-
-      curr.rank = same ? prev.rank : i + 1;
-    }
-  }
-
-  const lastUpdated = meta?.lastUpdated?.toISOString() ?? null;
-
+export default function StandingsPage({ standings }: StandingsPageProps) {
   return (
     <div style={{ padding: "20px" }}>
-      <h1>League Standings</h1>
+      <h1 style={{ marginBottom: "20px" }}>Standings</h1>
 
-      <div style={{ fontSize: "14px", color: "#666", marginBottom: "20px" }}>
-        Last Data Refresh:{" "}
-        {lastUpdated ? new Date(lastUpdated).toLocaleString() : "—"}
-      </div>
-
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          background: "white"
+        }}
+      >
         <thead>
-          <tr>
-            <th style={{ textAlign: "left", borderBottom: "2px solid #ccc" }}>
-              Owner
-            </th>
-            <th style={{ textAlign: "right", borderBottom: "2px solid #ccc" }}>
-              Wins
-            </th>
-            <th style={{ textAlign: "right", borderBottom: "2px solid #ccc" }}>
-              Draws
-            </th>
-            <th style={{ textAlign: "right", borderBottom: "2px solid #ccc" }}>
-              Losses
-            </th>
-            <th style={{ textAlign: "right", borderBottom: "2px solid #ccc" }}>
-              Points
-            </th>
+          <tr style={{ background: "#f5f5f5" }}>
+            <th style={{ padding: "8px", textAlign: "left" }}>Owner</th>
+            <th style={{ padding: "8px" }}>Points</th>
+            <th style={{ padding: "8px" }}>W</th>
+            <th style={{ padding: "8px" }}>D</th>
+            <th style={{ padding: "8px" }}>L</th>
+            <th style={{ padding: "8px" }}>GF</th>
+            <th style={{ padding: "8px" }}>GA</th>
+            <th style={{ padding: "8px" }}>GD</th>
+            <th style={{ padding: "8px" }}>Countries</th>
           </tr>
         </thead>
 
         <tbody>
-          {rows.map((owner) => (
-            <>
-              <tr
-                key={owner.ownerId}
-                style={{
-                  background: "#f7f7f7",
-                  fontWeight: 700
-                }}
-              >
-                <td style={{ padding: "8px 0" }}>
-                  {owner.rank}. {owner.ownerName}
-                </td>
-                <td style={{ textAlign: "right" }}>{owner.wins}</td>
-                <td style={{ textAlign: "right" }}>{owner.draws}</td>
-                <td style={{ textAlign: "right" }}>{owner.losses}</td>
-                <td style={{ textAlign: "right" }}>{owner.points}</td>
-              </tr>
-
-              {owner.countries.map((c) => (
-                <tr key={c.fifaCode}>
-                  <td
-                    style={{
-                      padding: "6px 0 6px 20px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px"
-                    }}
-                  >
-                    <Image
-                      src={`/logos/${c.fifaCode}.png`}
-                      alt={c.name}
-                      width={28}
-                      height={20}
-                      style={{ objectFit: "cover", borderRadius: "3px" }}
-                    />
-                    {c.name}
-                  </td>
-
-                  <td style={{ textAlign: "right" }}>{c.wins}</td>
-                  <td style={{ textAlign: "right" }}>{c.draws}</td>
-                  <td style={{ textAlign: "right" }}>{c.losses}</td>
-                  <td style={{ textAlign: "right" }}>{c.points}</td>
-                </tr>
-              ))}
-            </>
+          {standings.map((s) => (
+            <tr key={s.ownerId} style={{ borderBottom: "1px solid #ddd" }}>
+              <td style={{ padding: "8px", fontWeight: 600 }}>{s.ownerName}</td>
+              <td style={{ padding: "8px", textAlign: "center" }}>{s.points}</td>
+              <td style={{ padding: "8px", textAlign: "center" }}>{s.wins}</td>
+              <td style={{ padding: "8px", textAlign: "center" }}>{s.draws}</td>
+              <td style={{ padding: "8px", textAlign: "center" }}>{s.losses}</td>
+              <td style={{ padding: "8px", textAlign: "center" }}>{s.goalsFor}</td>
+              <td style={{ padding: "8px", textAlign: "center" }}>{s.goalsAgainst}</td>
+              <td style={{ padding: "8px", textAlign: "center" }}>{s.goalDiff}</td>
+              <td style={{ padding: "8px" }}>
+                {s.countries.join(", ")}
+              </td>
+            </tr>
           ))}
         </tbody>
       </table>
