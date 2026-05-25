@@ -1,11 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 
-// OpenLigaDB World Cup 2022 groups are numbered 1–8
-const SEASON = 2022;
-
-// 1 = Group A, 2 = Group B, ..., 8 = Group H
-const GROUP_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
+const COMPETITION_ID = 17;     // World Cup
+const SEASON_ID = 255711;      // 2022 World Cup season
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -13,59 +10,96 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // -----------------------------
+    // 1. Fetch Teams (metadata)
+    // -----------------------------
+    const teamsRes = await fetch(
+      `https://api.fifa.com/api/v3/teams?competition=${COMPETITION_ID}&season=${SEASON_ID}`
+    );
+
+    const teamsJson = await teamsRes.json();
+
+    const teams = teamsJson?.Teams || [];
+
+    // Build a lookup: fifaId → team metadata
+    const teamMap: Record<string, any> = {};
+
+    for (const t of teams) {
+      const id = t?.IdTeam?.toString();
+      if (!id) continue;
+
+      teamMap[id] = {
+        fifaId: id,
+        fifaCode: t?.Abbreviation || "",
+        name: t?.TeamName || "",
+        flagUrl: t?.PictureUrl || null
+      };
+    }
+
+    // -----------------------------
+    // 2. Fetch Standings (stats)
+    // -----------------------------
+    const standingsRes = await fetch(
+      `https://api.fifa.com/api/v3/standings?competition=${COMPETITION_ID}&season=${SEASON_ID}`
+    );
+
+    const standingsJson = await standingsRes.json();
+
+    const standings = standingsJson?.Results || [];
+
     let count = 0;
 
-    for (const groupId of GROUP_IDS) {
-      const url = `https://api.openligadb.de/getbltable/wm${SEASON}/${groupId}`;
-      const response = await fetch(url);
+    // -----------------------------
+    // 3. Merge teams + standings
+    // -----------------------------
+    for (const group of standings) {
+      const groupName = group?.GroupName || null;
+      const teamRecords = group?.TeamStandings || [];
 
-      if (!response.ok) {
-        console.error("OpenLigaDB error:", await response.text());
-        continue;
-      }
+      for (const record of teamRecords) {
+        const team = record?.Team;
+        if (!team) continue;
 
-      const table = await response.json();
+        const fifaId = team?.IdTeam?.toString();
+        if (!fifaId) continue;
 
-      // Each entry is a team in the group standings
-      for (const entry of table) {
-        const fifaCode = entry.shortName; // e.g., BRA, ARG, FRA
-        const name = entry.teamName;
-        const group = entry.groupName.replace("Group ", "");
+        const meta = teamMap[fifaId];
+        if (!meta) continue;
 
         await prisma.country.upsert({
-          where: { fifaCode },
+          where: { fifaId },
           update: {
-            name,
-            group,
+            fifaCode: meta.fifaCode,
+            name: meta.name,
+            group: groupName,
+            flagUrl: meta.flagUrl,
 
-            played: entry.matches,
-            wins: entry.won,
-            draws: entry.draw,
-            losses: entry.lost,
-
-            goalsFor: entry.goals,
-            goalsAgainst: entry.opponentGoals,
-            goalDiff: entry.goalDiff,
-
-            points: entry.points,
-            rank: entry.rank
+            played: record?.Played || 0,
+            wins: record?.Won || 0,
+            draws: record?.Drawn || 0,
+            losses: record?.Lost || 0,
+            goalsFor: record?.GoalsFor || 0,
+            goalsAgainst: record?.GoalsAgainst || 0,
+            goalDiff: record?.GoalDifference || 0,
+            points: record?.Points || 0,
+            rank: record?.Position || 0
           },
           create: {
-            fifaCode,
-            name,
-            group,
+            fifaId,
+            fifaCode: meta.fifaCode,
+            name: meta.name,
+            group: groupName,
+            flagUrl: meta.flagUrl,
 
-            played: entry.matches,
-            wins: entry.won,
-            draws: entry.draw,
-            losses: entry.lost,
-
-            goalsFor: entry.goals,
-            goalsAgainst: entry.opponentGoals,
-            goalDiff: entry.goalDiff,
-
-            points: entry.points,
-            rank: entry.rank
+            played: record?.Played || 0,
+            wins: record?.Won || 0,
+            draws: record?.Drawn || 0,
+            losses: record?.Lost || 0,
+            goalsFor: record?.GoalsFor || 0,
+            goalsAgainst: record?.GoalsAgainst || 0,
+            goalDiff: record?.GoalDifference || 0,
+            points: record?.Points || 0,
+            rank: record?.Position || 0
           }
         });
 
@@ -73,7 +107,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Update global sync timestamp
+    // -----------------------------
+    // 4. Update SyncMeta
+    // -----------------------------
     await prisma.syncMeta.upsert({
       where: { id: 1 },
       update: { lastUpdated: new Date() },
@@ -82,7 +118,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ status: "ok", count });
   } catch (err) {
-    console.error("World Cup Sync Error:", err);
+    console.error("FIFA Sync Error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 }

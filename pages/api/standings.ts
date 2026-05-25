@@ -32,15 +32,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         wins,
         draws,
         losses,
-        points,
         goalsFor,
         goalsAgainst,
         goalDiff,
-        countries: countries.map((c) => c.fifaCode)
+        points,
+        countries: countries.map((c) => ({
+          fifaCode: c.fifaCode,
+          flagUrl: c.flagUrl
+        }))
       };
     });
 
-    // Sort standings by points, then goal diff, then goals for
+    // Sort standings by points → goalDiff → goalsFor
     standings.sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
       if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;

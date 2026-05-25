@@ -15,23 +15,24 @@ model Owner {
 }
 
 model Country {
-  id        Int         @id @default(autoincrement())
-  name      String 
-  fifaCode  String      @unique
-  group     String
+  id         Int     @id @default(autoincrement())
+  fifaId     String  @unique   // IdTeam
+  fifaCode   String  @unique   // BRA, ARG, FRA
+  name       String
+  group      String?
+  flagUrl    String?
 
-  // ⭐ Stats fields from API-Football
-  played        Int      @default(0)
-  wins          Int      @default(0)
-  draws         Int      @default(0)
-  losses        Int      @default(0)
-  goalsFor      Int      @default(0)
-  goalsAgainst  Int      @default(0)
-  goalDiff      Int      @default(0)
-  points        Int      @default(0)
-  rank          Int      @default(0)
+  played        Int @default(0)
+  wins          Int @default(0)
+  draws         Int @default(0)
+  losses        Int @default(0)
+  goalsFor      Int @default(0)
+  goalsAgainst  Int @default(0)
+  goalDiff      Int @default(0)
+  points        Int @default(0)
+  rank          Int @default(0)
 
-  picks     DraftPick[]
+  picks DraftPick[]
 }
 
 model DraftPick {

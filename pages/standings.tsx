@@ -1,17 +1,22 @@
 import { GetServerSideProps } from "next";
 import { useState } from "react";
 
+type CountryInfo = {
+  fifaCode: string;
+  flagUrl: string | null;
+};
+
 type Standing = {
   ownerId: number;
   ownerName: string;
   wins: number;
   draws: number;
   losses: number;
-  points: number;
   goalsFor: number;
   goalsAgainst: number;
   goalDiff: number;
-  countries: string[];
+  points: number;
+  countries: CountryInfo[];
 };
 
 type StandingsPageProps = {
@@ -33,7 +38,6 @@ function resolveBaseUrl() {
 export const getServerSideProps: GetServerSideProps<StandingsPageProps> = async () => {
   const baseUrl = resolveBaseUrl();
 
-  // --- Safe fetch wrapper (prevents SSR crashes) ---
   async function safeJson(url: string) {
     try {
       const res = await fetch(url);
@@ -72,6 +76,7 @@ export default function StandingsPage({ standings, lastUpdated, baseUrl }: Stand
 
   return (
     <div style={{ padding: "20px" }}>
+      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -95,10 +100,12 @@ export default function StandingsPage({ standings, lastUpdated, baseUrl }: Stand
         </button>
       </div>
 
+      {/* Last Updated */}
       <div style={{ marginBottom: "20px", color: "#555", fontSize: "14px" }}>
         <strong>Last Updated:</strong> {formattedLastUpdated}
       </div>
 
+      {/* Standings Table */}
       <table
         style={{
           width: "100%",
@@ -131,7 +138,35 @@ export default function StandingsPage({ standings, lastUpdated, baseUrl }: Stand
               <td style={{ padding: "8px", textAlign: "center" }}>{s.goalsFor}</td>
               <td style={{ padding: "8px", textAlign: "center" }}>{s.goalsAgainst}</td>
               <td style={{ padding: "8px", textAlign: "center" }}>{s.goalDiff}</td>
-              <td style={{ padding: "8px" }}>{s.countries.join(", ")}</td>
+
+              {/* Countries with flags */}
+              <td style={{ padding: "8px" }}>
+                {s.countries.map((c) => (
+                  <span
+                    key={c.fifaCode}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      marginRight: "10px"
+                    }}
+                  >
+                    {c.flagUrl && (
+                      <img
+                        src={c.flagUrl}
+                        alt={c.fifaCode}
+                        width={28}
+                        height={20}
+                        style={{
+                          marginRight: "6px",
+                          borderRadius: "3px",
+                          objectFit: "cover"
+                        }}
+                      />
+                    )}
+                    {c.fifaCode}
+                  </span>
+                ))}
+              </td>
             </tr>
           ))}
         </tbody>
