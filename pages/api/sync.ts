@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 
 const API_URL = "https://v3.football.api-sports.io/standings";
-const API_KEY = process.env.FOOTBALL_API_KEY;
+const API_KEY = process.env.WORLD_CUP_API_KEY;
 const season = 2022;
 const league = 1;
 
