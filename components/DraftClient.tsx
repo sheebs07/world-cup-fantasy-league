@@ -10,7 +10,7 @@ type Owner = {
 type Country = {
   id: number;
   name: string;
-  group: string;
+  group: string | null;
   fifaCode: string;
   played: number;
   wins: number;

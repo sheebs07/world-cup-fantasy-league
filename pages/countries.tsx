@@ -63,7 +63,7 @@ export default function CountriesPage({ countries }: CountriesPageProps) {
       >
         <thead>
           <tr style={{ background: "#f5f5f5" }}>
-            <th style={{ padding: "8px", textAlign: "left" }}>Flag</th>
+            <th style={{ padding: "8px" }}>Flag</th>
             <th style={{ padding: "8px", textAlign: "left" }}>Country</th>
             <th style={{ padding: "8px" }}>Code</th>
             <th style={{ padding: "8px" }}>Group</th>

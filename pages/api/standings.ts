@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Load all owners with their picks and linked countries
     const owners = await prisma.owner.findMany({
       include: {
         picks: {
@@ -17,14 +16,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const standings = owners.map((owner) => {
       const countries = owner.picks.map((p) => p.country);
 
-      // Aggregate stats across all picked countries
-      const wins = countries.reduce((sum, c) => sum + c.wins, 0);
-      const draws = countries.reduce((sum, c) => sum + c.draws, 0);
-      const losses = countries.reduce((sum, c) => sum + c.losses, 0);
-      const goalsFor = countries.reduce((sum, c) => sum + c.goalsFor, 0);
-      const goalsAgainst = countries.reduce((sum, c) => sum + c.goalsAgainst, 0);
+      const wins = countries.reduce((s, c) => s + c.wins, 0);
+      const draws = countries.reduce((s, c) => s + c.draws, 0);
+      const losses = countries.reduce((s, c) => s + c.losses, 0);
+      const goalsFor = countries.reduce((s, c) => s + c.goalsFor, 0);
+      const goalsAgainst = countries.reduce((s, c) => s + c.goalsAgainst, 0);
       const goalDiff = goalsFor - goalsAgainst;
-      const points = countries.reduce((sum, c) => sum + c.points, 0);
+      const points = countries.reduce((s, c) => s + c.points, 0);
 
       return {
         ownerId: owner.id,
@@ -36,14 +34,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         goalsAgainst,
         goalDiff,
         points,
+
         countries: countries.map((c) => ({
+          id: c.id,
+          fifaId: c.fifaId,
           fifaCode: c.fifaCode,
-          flagUrl: c.flagUrl
+          name: c.name,
+          group: c.group,
+          flagUrl: c.flagUrl,
+
+          played: c.played,
+          wins: c.wins,
+          draws: c.draws,
+          losses: c.losses,
+          goalsFor: c.goalsFor,
+          goalsAgainst: c.goalsAgainst,
+          goalDiff: c.goalDiff,
+          points: c.points,
+          rank: c.rank
         }))
       };
     });
 
-    // Sort standings by points → goalDiff → goalsFor
     standings.sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
       if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
