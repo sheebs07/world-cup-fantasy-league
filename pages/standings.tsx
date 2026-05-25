@@ -16,6 +16,7 @@ type Standing = {
 
 type StandingsPageProps = {
   standings: Standing[];
+  lastUpdated: string | null;
   baseUrl: string;
 };
 
@@ -27,35 +28,49 @@ export const getServerSideProps: GetServerSideProps<StandingsPageProps> = async 
 
   const url = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
 
-  const res = await fetch(`${url}/api/standings`);
-  const standings = await res.json();
+  // Fetch standings
+  const standingsRes = await fetch(`${url}/api/standings`);
+  const standings = await standingsRes.json();
+
+  // Fetch last updated timestamp
+  const metaRes = await fetch(`${url}/api/sync-meta`);
+  const meta = await metaRes.json();
 
   return {
-    props: { standings, baseUrl: url }
+    props: {
+      standings,
+      lastUpdated: meta?.lastUpdated ?? null,
+      baseUrl: url
+    }
   };
 };
 
-export default function StandingsPage({ standings, baseUrl }: StandingsPageProps) {
+export default function StandingsPage({ standings, lastUpdated, baseUrl }: StandingsPageProps) {
   const [loading, setLoading] = useState(false);
 
   const refreshData = async () => {
     setLoading(true);
 
-    await fetch(`${baseUrl}/api/worldcup-sync`, {
+    await fetch(`${baseUrl}/api/sync`, {
       method: "POST"
     });
 
     window.location.reload();
   };
 
+  const formattedLastUpdated = lastUpdated
+    ? new Date(lastUpdated).toLocaleString()
+    : "Never";
+
   return (
     <div style={{ padding: "20px" }}>
+      {/* Header Row */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "20px"
+          marginBottom: "10px"
         }}
       >
         <h1>Standings</h1>
@@ -73,6 +88,12 @@ export default function StandingsPage({ standings, baseUrl }: StandingsPageProps
         </button>
       </div>
 
+      {/* Last Updated */}
+      <div style={{ marginBottom: "20px", color: "#555", fontSize: "14px" }}>
+        <strong>Last Updated:</strong> {formattedLastUpdated}
+      </div>
+
+      {/* Standings Table */}
       <table
         style={{
           width: "100%",
