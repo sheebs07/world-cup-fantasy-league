@@ -10,7 +10,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           <a href="/draft" style={{ color: '#fff', marginRight: 16 }}>Draft</a>
           <a href="/standings" style={{ color: '#fff', marginRight: 16 }}>Standings</a>
           <a href="/owners" style={{ color: '#fff', marginRight: 16 }}>Owners</a>
-          <a href="/teams" style={{ color: '#fff' }}>Teams</a>
+          <a href="/countries" style={{ color: '#fff' }}>Countries</a>
         </nav>
       </header>
 
