@@ -21,26 +21,26 @@ type StandingsPageProps = {
 };
 
 export const getServerSideProps: GetServerSideProps<StandingsPageProps> = async () => {
-  const baseUrl =
+  const raw =
     process.env.NEXT_PUBLIC_BASE_URL ||
     process.env.VERCEL_URL ||
     "http://localhost:3000";
 
-  const url = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
+  const baseUrl = raw.startsWith("http") ? raw : `https://${raw}`;
 
   // Fetch standings
-  const standingsRes = await fetch(`${url}/api/standings`);
+  const standingsRes = await fetch(`${baseUrl}/api/standings`);
   const standings = await standingsRes.json();
 
   // Fetch last updated timestamp
-  const metaRes = await fetch(`${url}/api/sync-meta`);
+  const metaRes = await fetch(`${baseUrl}/api/sync-meta`);
   const meta = await metaRes.json();
 
   return {
     props: {
       standings,
       lastUpdated: meta?.lastUpdated ?? null,
-      baseUrl: url
+      baseUrl
     }
   };
 };
@@ -52,7 +52,8 @@ export default function StandingsPage({ standings, lastUpdated, baseUrl }: Stand
     setLoading(true);
 
     await fetch(`${baseUrl}/api/sync`, {
-      method: "POST"
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
     });
 
     window.location.reload();
