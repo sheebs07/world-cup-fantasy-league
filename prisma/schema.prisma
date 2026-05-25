@@ -14,12 +14,23 @@ model Owner {
   picks     DraftPick[]
 }
 
-model MlbTeam {
+model Country {
   id        Int         @id @default(autoincrement())
-  mlbId     Int         @unique
   name      String
-  division  String
-  standings MlbStanding?
+  fifaCode  String      @unique
+  group     String
+
+  // ⭐ Stats fields from API-Football
+  played        Int      @default(0)
+  wins          Int      @default(0)
+  draws         Int      @default(0)
+  losses        Int      @default(0)
+  goalsFor      Int      @default(0)
+  goalsAgainst  Int      @default(0)
+  goalDiff      Int      @default(0)
+  points        Int      @default(0)
+  rank          Int      @default(0)
+
   picks     DraftPick[]
 }
 
@@ -27,23 +38,13 @@ model DraftPick {
   id         Int     @id @default(autoincrement())
   owner      Owner   @relation(fields: [ownerId], references: [id])
   ownerId    Int
-  mlbTeam    MlbTeam @relation(fields: [mlbTeamId], references: [id])
-  mlbTeamId  Int
+  country    Country @relation(fields: [countryId], references: [id])
+  countryId  Int
   round      Int
   pickNumber Int
 }
 
-model MlbStanding {
-  id        Int     @id @default(autoincrement())
-  mlbTeam   MlbTeam @relation(fields: [mlbTeamId], references: [id])
-  mlbTeamId Int     @unique
-  wins      Int
-  losses    Int
-  pct       Float
-  updatedAt DateTime @updatedAt
-}
-
-model MlbSyncMeta {
+model SyncMeta {
   id          Int      @id @default(1)
   lastUpdated DateTime @default(now())
 }

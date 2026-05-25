@@ -2,19 +2,37 @@
 
 import { useState, useEffect } from "react";
 
-type Owner = { id: number; name: string };
+type Owner = {
+  id: number;
+  name: string
+};
 
-type MlbTeam = { id: number; name: string; division: string; mlbId: number };
+type Country = {
+  id: number;
+  name: string;
+  group: string;
+  fifaCode: string;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDiff: number;
+  points: number;
+  rank: number;
+};
+
 
 type DraftPick = {
   id: number;
   ownerId: number;
-  mlbTeamId: number;
+  fifaCode: string;
   round: number;
   pickNumber: number;
-  mlbTeam: {
+  country: {
     name: string;
-    mlbId: number;
+    fifaCode: string;
   };
 };
 
@@ -39,12 +57,12 @@ type Settings = {
 
 export default function DraftClient({
   owners,
-  teams,
+  countries,
   picks: initialPicks,
   settings
 }: {
   owners: Owner[];
-  teams: MlbTeam[];
+  countries: Country[];
   picks: DraftPick[];
   settings: Settings;
 }) {
@@ -106,12 +124,12 @@ export default function DraftClient({
       const transformed = picksData.picks.map((p: any) => ({
         id: p.id,
         ownerId: p.ownerId,
-        mlbTeamId: p.mlbTeamId,
+        fifaCode: p.fifaCode,
         round: p.round,
         pickNumber: p.pickNumber,
-        mlbTeam: {
-          name: p.mlbTeam.name,
-          mlbId: p.mlbTeam.mlbId
+        country: {
+          name: p.country.name,
+          fifaCode: p.country.fifaCode
         }
       }));
 
@@ -167,12 +185,12 @@ export default function DraftClient({
     }
   }, [draftState?.preDraftStartTime, draftState?.draftStatus]);
 
-  const takenTeamIds = new Set(allPicks.map((p) => p.mlbTeamId));
+  const takenTeamIds = new Set(allPicks.map((p) => p.fifaCode));
   const totalPicks = owners.length * rounds;
   const currentPickNumber = allPicks.length + 1;
   const draftComplete = allPicks.length >= totalPicks;
 
-  const getLogoUrl = (team: MlbTeam) => `/logos/${team.mlbId}.png`;
+  const getLogoUrl = (country: Country) => `/logos/${country.fifaCode}.png`;
 
   const handlePick = async (teamId: number) => {
     setLoading(true);
@@ -196,12 +214,12 @@ export default function DraftClient({
     const clientPick: DraftPick = {
       id: p.id,
       ownerId: p.ownerId,
-      mlbTeamId: p.mlbTeamId,
+      fifaCode: p.fifaCode,
       round: p.round,
       pickNumber: p.pickNumber,
-      mlbTeam: {
-        name: p.mlbTeam.name,
-        mlbId: p.mlbTeam.mlbId
+      country: {
+        name: p.country.name,
+        fifaCode: p.country.fifaCode
       }
     };
 
@@ -603,8 +621,8 @@ export default function DraftClient({
                         }}
                       >
                         <img
-                          src={`/logos/${pick.mlbTeam.mlbId}.png`}
-                          alt={pick.mlbTeam.name}
+                          src={`/logos/${pick.country.fifaCode}.png`}
+                          alt={pick.country.name}
                           style={{
                             width: "45px",
                             height: "45px",
@@ -624,7 +642,7 @@ export default function DraftClient({
                             maxWidth: "100%"
                           }}
                         >
-                          {getShortTeamName(pick.mlbTeam.name)}
+                          {getShortTeamName(pick.country.name)}
                         </div>
                       </div>
                     ) : (
@@ -650,7 +668,7 @@ export default function DraftClient({
       </table>
 
       {/* AVAILABLE TEAMS */}
-      <h3 style={{ marginBottom: "10px" }}>Available Teams</h3>
+      <h3 style={{ marginBottom: "10px" }}>Available Countries</h3>
 
       {loading && <p style={{ color: "#777" }}>Submitting pick…</p>}
 
@@ -661,11 +679,11 @@ export default function DraftClient({
           gap: "12px"
         }}
       >
-        {teams
-          .filter((t) => !takenTeamIds.has(t.id))
-          .map((team) => (
+        {countries
+          .filter((t) => !takenTeamIds.has(t.fifaCode))
+          .map((country) => (
             <div
-              key={team.id}
+              key={country.id}
               className="card"
               style={{
                 display: "flex",
@@ -677,8 +695,8 @@ export default function DraftClient({
               }}
             >
               <img
-                src={getLogoUrl(team)}
-                alt={team.name}
+                src={getLogoUrl(country)}
+                alt={country.name}
                 style={{
                   width: "48px",
                   height: "48px",
@@ -688,15 +706,15 @@ export default function DraftClient({
 
               <div style={{ display: "flex", flexDirection: "column" }}>
                 <div style={{ fontWeight: 600, fontSize: "15px" }}>
-                  {getShortTeamName(team.name)}
+                  {getShortTeamName(country.name)}
                 </div>
                 <div style={{ color: "#666", fontSize: "13px" }}>
-                  {team.division}
+                  {country.group}
                 </div>
               </div>
 
               <button
-                onClick={() => handlePick(team.id)}
+                onClick={() => handlePick(country.id)}
                 disabled={loading || draftComplete}
                 style={{
                   marginLeft: "auto",

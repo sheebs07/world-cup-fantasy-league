@@ -1,165 +1,103 @@
-"use client";
-
-import { useState } from "react";
+import Image from "next/image";
 import { prisma } from "@/lib/prisma";
+
+type CountryRow = {
+  fifaCode: string;
+  name: string;
+  wins: number;
+  draws: number;
+  losses: number;
+  points: number;
+};
 
 type OwnerRow = {
   ownerId: number;
   ownerName: string;
   wins: number;
+  draws: number;
   losses: number;
-  pct: number;
+  points: number;
   rank: number;
-  teams: {
-    mlbId: number;
-    name: string;
-    wins: number;
-    losses: number;
-  }[];
+  countries: CountryRow[];
 };
 
-export async function getServerSideProps() {
+export default async function StandingsPage() {
+  // Load owners + picks + countries
   const owners = await prisma.owner.findMany({
     include: {
       picks: {
         include: {
-          mlbTeam: {
-            include: { standings: true }
-          }
+          country: true
         }
       }
     },
     orderBy: { name: "asc" }
   });
 
-  // ⭐ Load global timestamp
-  const meta = await prisma.mlbSyncMeta.findUnique({
-    where: { id: 1 }
-  });
+  const meta = await prisma.syncMeta.findUnique({ where: { id: 1 } });
 
-  const rows: OwnerRow[] = owners.map((o) => {
-    const teams = o.picks.map((p) => ({
-      mlbId: p.mlbTeam.mlbId,
-      name: p.mlbTeam.name,
-      wins: p.mlbTeam.standings?.wins ?? 0,
-      losses: p.mlbTeam.standings?.losses ?? 0
+  // Build rows
+  const rows: OwnerRow[] = owners.map((o: { picks: any[]; id: any; name: any; }) => {
+    const countries: CountryRow[] = o.picks.map((p) => ({
+      fifaCode: p.country.fifaCode,
+      name: p.country.name,
+      wins: p.country.wins,
+      draws: p.country.draws,
+      losses: p.country.losses,
+      points: p.country.points
     }));
 
-    const wins = teams.reduce((sum, t) => sum + t.wins, 0);
-    const losses = teams.reduce((sum, t) => sum + t.losses, 0);
-    const pct = wins + losses > 0 ? wins / (wins + losses) : 0;
+    const wins = countries.reduce((sum, c) => sum + c.wins, 0);
+    const draws = countries.reduce((sum, c) => sum + c.draws, 0);
+    const losses = countries.reduce((sum, c) => sum + c.losses, 0);
+    const points = countries.reduce((sum, c) => sum + c.points, 0);
 
     return {
       ownerId: o.id,
       ownerName: o.name,
       wins,
+      draws,
       losses,
-      pct,
+      points,
       rank: 0,
-      teams
+      countries
     };
   });
 
-  // ⭐ Correct sorting: wins desc → pct desc → losses desc
+  // Sort standings
   rows.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
     if (b.wins !== a.wins) return b.wins - a.wins;
-    if (b.pct !== a.pct) return b.pct - a.pct;
     return a.losses - b.losses;
   });
 
-  // Standard ranking (1, 2, 2, 2, 2, 6)
+  // Dense ranking
   if (rows.length > 0) {
     rows[0].rank = 1;
-
     for (let i = 1; i < rows.length; i++) {
       const prev = rows[i - 1];
       const curr = rows[i];
-
-      const sameRecord =
+      const same =
+        prev.points === curr.points &&
         prev.wins === curr.wins &&
         prev.losses === curr.losses;
 
-      if (sameRecord) {
-        curr.rank = prev.rank; // same rank
-      } else {
-        curr.rank = i + 1; // position in list
-      }
+      curr.rank = same ? prev.rank : i + 1;
     }
   }
 
-  return {
-    props: {
-      rows,
-      lastUpdated: meta?.lastUpdated?.toISOString() ?? null
-    }
-  };
-}
-
-export default function StandingsPage({
-  rows,
-  lastUpdated
-}: {
-  rows: OwnerRow[];
-  lastUpdated: string | null;
-}) {
-  const [open, setOpen] = useState<Record<number, boolean>>({});
-  const [loading, setLoading] = useState(false);
-
-  const logo = (mlbId: number) => `/logos/${mlbId}.png`;
-
-  const toggle = (ownerId: number) =>
-    setOpen((prev) => ({ ...prev, [ownerId]: !prev[ownerId] }));
-
-  const refreshData = async () => {
-    setLoading(true);
-    await fetch("/api/mlb-sync", { method: "POST" });
-    window.location.reload();
-  };
+  const lastUpdated = meta?.lastUpdated?.toISOString() ?? null;
 
   return (
-    <div>
-      {/* HEADER WITH RIGHT-ALIGNED BUTTON */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: "20px"
-        }}
-      >
-        <h1>League Standings</h1>
+    <div style={{ padding: "20px" }}>
+      <h1>League Standings</h1>
 
-        <div style={{ textAlign: "right" }}>
-          <button
-            onClick={refreshData}
-            disabled={loading}
-            style={{
-              padding: "8px 14px",
-              cursor: "pointer",
-              fontSize: "14px",
-              marginBottom: "6px"
-            }}
-          >
-            {loading ? "Refreshing…" : "Refresh Data"}
-          </button>
-
-          <div style={{ fontSize: "13px", color: "#666" }}>
-            Last Data Refresh:{" "}
-            {lastUpdated
-              ? new Date(lastUpdated).toLocaleString()
-              : "—"}
-          </div>
-        </div>
+      <div style={{ fontSize: "14px", color: "#666", marginBottom: "20px" }}>
+        Last Data Refresh:{" "}
+        {lastUpdated ? new Date(lastUpdated).toLocaleString() : "—"}
       </div>
 
-      {/* STANDINGS TABLE */}
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          marginBottom: "20px"
-        }}
-      >
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>
             <th style={{ textAlign: "left", borderBottom: "2px solid #ccc" }}>
@@ -169,10 +107,13 @@ export default function StandingsPage({
               Wins
             </th>
             <th style={{ textAlign: "right", borderBottom: "2px solid #ccc" }}>
+              Draws
+            </th>
+            <th style={{ textAlign: "right", borderBottom: "2px solid #ccc" }}>
               Losses
             </th>
             <th style={{ textAlign: "right", borderBottom: "2px solid #ccc" }}>
-              Win %
+              Points
             </th>
           </tr>
         </thead>
@@ -182,57 +123,46 @@ export default function StandingsPage({
             <>
               <tr
                 key={owner.ownerId}
-                onClick={() => toggle(owner.ownerId)}
                 style={{
-                  cursor: "pointer",
-                  background: "#f7f7f7"
+                  background: "#f7f7f7",
+                  fontWeight: 700
                 }}
               >
-                <td style={{ padding: "8px 0", fontWeight: 700 }}>
+                <td style={{ padding: "8px 0" }}>
                   {owner.rank}. {owner.ownerName}
-                  <span style={{ marginLeft: "8px", color: "#888" }}>
-                    {open[owner.ownerId] ? "▲" : "▼"}
-                  </span>
                 </td>
-
                 <td style={{ textAlign: "right" }}>{owner.wins}</td>
+                <td style={{ textAlign: "right" }}>{owner.draws}</td>
                 <td style={{ textAlign: "right" }}>{owner.losses}</td>
-                <td style={{ textAlign: "right" }}>{owner.pct.toFixed(3)}</td>
+                <td style={{ textAlign: "right" }}>{owner.points}</td>
               </tr>
 
-              {open[owner.ownerId] &&
-                owner.teams.map((team) => (
-                  <tr key={team.mlbId}>
-                    <td
-                      style={{
-                        padding: "6px 0 6px 20px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px"
-                      }}
-                    >
-                      <img
-                        src={logo(team.mlbId)}
-                        alt={team.name}
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          objectFit: "contain"
-                        }}
-                      />
-                      {team.name}
-                    </td>
+              {owner.countries.map((c) => (
+                <tr key={c.fifaCode}>
+                  <td
+                    style={{
+                      padding: "6px 0 6px 20px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px"
+                    }}
+                  >
+                    <Image
+                      src={`/logos/${c.fifaCode}.png`}
+                      alt={c.name}
+                      width={28}
+                      height={20}
+                      style={{ objectFit: "cover", borderRadius: "3px" }}
+                    />
+                    {c.name}
+                  </td>
 
-                    <td style={{ textAlign: "right" }}>{team.wins}</td>
-                    <td style={{ textAlign: "right" }}>{team.losses}</td>
-                    <td style={{ textAlign: "right" }}>
-                      {(team.wins + team.losses > 0
-                        ? team.wins / (team.wins + team.losses)
-                        : 0
-                      ).toFixed(3)}
-                    </td>
-                  </tr>
-                ))}
+                  <td style={{ textAlign: "right" }}>{c.wins}</td>
+                  <td style={{ textAlign: "right" }}>{c.draws}</td>
+                  <td style={{ textAlign: "right" }}>{c.losses}</td>
+                  <td style={{ textAlign: "right" }}>{c.points}</td>
+                </tr>
+              ))}
             </>
           ))}
         </tbody>
